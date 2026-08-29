@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Mini-Foot — Local Preview</title>
+<style>
+*{box-sizing:border-box;font-family:Inter,system-ui,sans-serif}
+body{margin:0;background:#f3f4f6;color:#111827}
+header{background:#111827;color:white;padding:18px 22px;display:flex;justify-content:space-between;align-items:center}
+header h1{margin:0;font-size:18px;letter-spacing:.4px}
+a{color:#16a34a;text-decoration:none}
+.wrap{max-width:1080px;margin:22px auto;padding:0 16px;display:grid;gap:18px}
+.card{background:white;border:1px solid #e5e7eb;border-radius:14px;padding:16px}
+h2{margin:0 0 8px;font-size:15px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:11px;font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.pitch{aspect-ratio:3/4;background:linear-gradient(180deg,#1a7f37 0%,#0f5c28 100%);border-radius:14px;position:relative;border:3px solid white;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.pitch *{position:absolute}
+.slot{width:62px;height:70px;background:white;border-radius:10px;display:grid;place-items:center;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.2);transform:translate(-50%,-50%);font-size:10px;line-height:1}
+.slot b{font-size:11px}
+.btn{padding:7px 12px;border-radius:8px;border:1px solid #16a34a;background:#16a34a;color:white;font-weight:700;font-size:12px;cursor:pointer}
+.btn.out{background:white;color:#16a34a}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{padding:6px 10px;border-radius:999px;border:1px solid #e5e7eb;background:white;font-weight:700;font-size:12px;cursor:pointer}
+.tab.on{background:#16a34a;color:white;border-color:#16a34a}
+pre{margin:0;background:#0b1220;color:#d1fae5;padding:12px;border-radius:10px;overflow:auto;font-size:12px}
+.small{font-size:12px;color:#6b7280}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚽ Mini-Foot Tactical & Roster Manager <span class="badge">localhost:5000</span></h1>
+  <div class="small">Backend + PitchBoard preview</div>
+</header>
+<div class="wrap">
+  <div class="card">
+    <h2>Quick Links</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a class="btn out" href="/health" target="_blank">GET /health</a>
+      <a class="btn out" href="/api/health" target="_blank">GET /api/health</a>
+      <a class="btn out" href="/api/players" target="_blank">GET /api/players</a>
+      <a class="btn out" href="/api/matches" target="_blank">GET /api/matches</a>
+      <a class="btn out" href="https://github.com" onclick="alert('Use curl/Postman for POST endpoints below');return false">POST examples ↓</a>
+    </div>
+    <pre style="margin-top:12px">POST /api/auth/register  { name,email,password,role }
+POST /api/auth/login     { email,password } -> { token }
+POST /api/players/profile -H "Authorization: Bearer TOKEN" { photoUrl,heightCm,weightKg,primaryPosition,secondaryPosition,preferredFoot,jerseyNumber }
+POST /api/matches -H "Authorization: Bearer TOKEN" { opponent,matchDate,venue,formatType }
+POST /api/matches/:id/guests { name,assignedPosition }
+POST /api/matches/:id/lineup { formationName,pitchPositionsJson: { [slotId]: {playerId,guestId,positionName} } }
+GET  /api/matches/:id/lineup</pre>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Dynamic Pitch Board — Live Demo</h2>
+      <div class="tabs" id="fmtTabs"></div>
+      <div class="tabs" id="formTabs" style="margin:8px 0"></div>
+      <div class="pitch" id="pitch">
+        <div style="inset:10px;border:2px solid rgba(255,255,255,.9);border-radius:8px;pointer-events:none"></div>
+        <div style="top:50%;left:10px;right:10px;height:2px;background:rgba(255,255,255,.9)"></div>
+        <div style="top:50%;left:50%;width:70px;height:70px;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.9);border-radius:50%"></div>
+      </div>
+      <div class="small" style="margin-top:8px">Click a slot in your React app (<code>src/components/PitchBoard.tsx</code>) to assign bench players / guests. This static preview just visualizes the 12 presets.</div>
+    </div>
+    <div class="card">
+      <h2>Roster (from /api/players)</h2>
+      <div id="roster" class="small">Loading…</div>
+      <h2 style="margin-top:14px">Current Match + Lineup</h2>
+      <div id="lineup" class="small">Loading…</div>
+    </div>
+  </div>
+
+  <div class="card small">
+    <b>Run locally:</b> <code>npm run dev</code> (ts-node, port 5000) or <code>npm run build && npm start</code> • DB: <code>prisma/dev.db</code> (SQLite) • <code>npx prisma studio</code> for DB GUI • React boards: <code>src/components/PlayerCard.tsx</code> & <code>src/components/PitchBoard.tsx</code> (drop into any Vite/Next app)
+  </div>
+</div>
+<script>
+const FORMATIONS={
+ "5v5":[{"name":"1-2-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":30,"y":68},{"id":"d2","label":"DEF","x":70,"y":68},{"id":"m1","label":"MID","x":50,"y":42},{"id":"p1","label":"PIVOT","x":50,"y":18}]},{"name":"2-2","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":25,"y":62},{"id":"d2","label":"DEF","x":75,"y":62},{"id":"m1","label":"MID","x":25,"y":30},{"id":"m2","label":"MID","x":75,"y":30}]},{"name":"2-1-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":30,"y":65},{"id":"d2","label":"DEF","x":70,"y":65},{"id":"m1","label":"MID","x":50,"y":42},{"id":"p1","label":"PIVOT","x":50,"y":18}]}],
+ "6v6":[{"name":"2-2-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":30,"y":66},{"id":"d2","label":"DEF","x":70,"y":66},{"id":"m1","label":"MID","x":30,"y":38},{"id":"m2","label":"MID","x":70,"y":38},{"id":"p1","label":"PIVOT","x":50,"y":16}]},{"name":"2-1-2","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":28,"y":66},{"id":"d2","label":"DEF","x":72,"y":66},{"id":"m1","label":"MID","x":50,"y":44},{"id":"p1","label":"PIVOT","x":30,"y":18},{"id":"p2","label":"PIVOT","x":70,"y":18}]},{"name":"1-3-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":50,"y":68},{"id":"m1","label":"MID","x":20,"y":42},{"id":"m2","label":"MID","x":50,"y":38},{"id":"m3","label":"MID","x":80,"y":42},{"id":"p1","label":"PIVOT","x":50,"y":16}]}],
+ "7v7":[{"name":"2-3-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":32,"y":70},{"id":"d2","label":"DEF","x":68,"y":70},{"id":"m1","label":"MID","x":20,"y":44},{"id":"m2","label":"MID","x":50,"y":40},{"id":"m3","label":"MID","x":80,"y":44},{"id":"p1","label":"PIVOT","x":50,"y":16}]},{"name":"3-2-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":22,"y":68},{"id":"d2","label":"DEF","x":50,"y":70},{"id":"d3","label":"DEF","x":78,"y":68},{"id":"m1","label":"MID","x":35,"y":40},{"id":"m2","label":"MID","x":65,"y":40},{"id":"p1","label":"PIVOT","x":50,"y":16}]},{"name":"3-1-2","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":22,"y":68},{"id":"d2","label":"DEF","x":50,"y":70},{"id":"d3","label":"DEF","x":78,"y":68},{"id":"m1","label":"MID","x":50,"y":44},{"id":"p1","label":"PIVOT","x":32,"y":18},{"id":"p2","label":"PIVOT","x":68,"y":18}]}],
+ "8v8":[{"name":"3-3-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":22,"y":70},{"id":"d2","label":"DEF","x":50,"y":72},{"id":"d3","label":"DEF","x":78,"y":70},{"id":"m1","label":"MID","x":22,"y":42},{"id":"m2","label":"MID","x":50,"y":38},{"id":"m3","label":"MID","x":78,"y":42},{"id":"p1","label":"PIVOT","x":50,"y":16}]},{"name":"2-4-1","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":32,"y":70},{"id":"d2","label":"DEF","x":68,"y":70},{"id":"m1","label":"MID","x":18,"y":44},{"id":"m2","label":"MID","x":40,"y":40},{"id":"m3","label":"MID","x":60,"y":40},{"id":"m4","label":"MID","x":82,"y":44},{"id":"p1","label":"PIVOT","x":50,"y":16}]},{"name":"3-2-2","slots":[{"id":"gk","label":"GK","x":50,"y":88},{"id":"d1","label":"DEF","x":22,"y":70},{"id":"d2","label":"DEF","x":50,"y":72},{"id":"d3","label":"DEF","x":78,"y":70},{"id":"m1","label":"MID","x":32,"y":40},{"id":"m2","label":"MID","x":68,"y":40},{"id":"p1","label":"PIVOT","x":32,"y":16},{"id":"p2","label":"PIVOT","x":68,"y":16}]}]
+};
+let curFmt='5v5', curForm=FORMATIONS['5v5'][0].name;
+const fmtTabs=document.getElementById('fmtTabs'), formTabs=document.getElementById('formTabs'), pitch=document.getElementById('pitch');
+function renderTabs(){
+  fmtTabs.innerHTML=''; formTabs.innerHTML='';
+  Object.keys(FORMATIONS).forEach(f=>{
+    const b=document.createElement('button'); b.className='tab'+(f===curFmt?' on':''); b.textContent=f; b.onclick=()=>{curFmt=f; curForm=FORMATIONS[f][0].name; renderTabs(); renderPitch();}; fmtTabs.appendChild(b);
+  });
+  FORMATIONS[curFmt].forEach(fo=>{
+    const b=document.createElement('button'); b.className='tab'+(fo.name===curForm?' on':''); b.textContent=fo.name; b.onclick=()=>{curForm=fo.name; renderTabs(); renderPitch();}; formTabs.appendChild(b);
+  });
+}
+function renderPitch(){
+  [...pitch.querySelectorAll('.slot')].forEach(e=>e.remove());
+  const def=FORMATIONS[curFmt].find(x=>x.name===curForm);
+  def.slots.forEach(s=>{
+    const d=document.createElement('div'); d.className='slot'; d.style.left=s.x+'%'; d.style.top=s.y+'%';
+    d.innerHTML=`<b>${s.label}</b><span>${s.id}</span>`; pitch.appendChild(d);
+  });
+}
+renderTabs(); renderPitch();
+async function load(){
+  try{
+    const r=await fetch('/api/players'); const j=await r.json();
+    document.getElementById('roster').innerHTML=j.length? j.map(p=>`• <b>${p.name}</b> #${p.jerseyNumber||'-'} ${p.primaryPosition} ${p.heightCm||'-'}cm/${p.weightKg||'-'}kg OVR ${p.overallRating||'-'}`).join('<br>') : 'No players yet — POST /api/auth/register + /api/players/profile';
+    const m=await fetch('/api/matches'); const mj=await m.json();
+    if(mj.length){
+      const id=mj[0].id; const lr=await fetch(`/api/matches/${id}/lineup`); const lj=await lr.json();
+      document.getElementById('lineup').innerHTML=`<b>${mj[0].opponent}</b> ${mj[0].formatType} ${mj[0].venue||''}<br>Lineup: ${lj.lineup? lj.lineup.formationName+' — '+Object.keys(JSON.parse(lj.lineup.pitchPositionsJson)).length+' slots' : 'none (GET returns default formation)'}<br><a href="/api/matches/${id}/lineup" target="_blank">/api/matches/${id}/lineup</a>`;
+    } else document.getElementById('lineup').innerHTML='No matches yet — POST /api/matches';
+  }catch(e){ document.getElementById('roster').textContent='Error: '+e; }
+}
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("player")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  player       Player?
+  pitchComments PitchComment[]
+  sentInvites  Invite[] @relation("InviteManager")
+  receivedInvites Invite[] @relation("InvitePlayer")
+  sentFriends  FriendRequest[] @relation("FriendRequester")
+  receivedFriends FriendRequest[] @relation("FriendAddressee")
+  @@map("users")
+}
+
+model Player {
+  id                String   @id @default(cuid())
+  userId            String   @unique @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  nickname          String?  @map("nickname")
+  photoUrl          String?  @map("photo_url")
+  bio               String?  @map("bio")
+  phone             String?  @map("phone")
+  heightCm          Int?     @map("height_cm")
+  weightKg          Int?     @map("weight_kg")
+  primaryPosition   String   @map("primary_position")
+  secondaryPosition String?  @map("secondary_position")
+  preferredFoot     String   @map("preferred_foot")
+  jerseyNumber      Int?     @map("jersey_number")
+  overallRating     Int?     @map("overall_rating")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  rsvps             Rsvp[]
+  matchEvents       MatchEvent[]
+  @@map("players")
+}
+
+model Match {
+  id           String   @id @default(cuid())
+  opponent     String
+  matchDate    DateTime @map("match_date")
+  venue        String?
+  formatType   String   @map("format_type")
+  homeKitColor String?  @map("home_kit_color")
+  awayKitColor String?  @map("away_kit_color")
+  scoreHome    Int      @default(0) @map("score_home")
+  scoreAway    Int      @default(0) @map("score_away")
+  status       String   @default("scheduled")
+  isHome       Boolean  @default(true) @map("is_home")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  rsvps        Rsvp[]
+  lineups      Lineup[]
+  guestPlayers GuestPlayer[]
+  matchEvents  MatchEvent[]
+  @@map("matches")
+}
+
+model Rsvp {
+  id          String   @id @default(cuid())
+  matchId     String   @map("match_id")
+  playerId    String   @map("player_id")
+  status      String   @default("maybe")
+  respondedAt DateTime @default(now()) @map("responded_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  @@unique([matchId, playerId])
+  @@map("rsvps")
+}
+
+model Lineup {
+  id                 String   @id @default(cuid())
+  matchId            String   @unique @map("match_id")
+  formationName      String   @map("formation_name")
+  pitchPositionsJson String   @map("pitch_positions_json")
+  createdBy          String?  @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  match              Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  @@map("lineups")
+}
+
+model GuestPlayer {
+  id               String       @id @default(cuid())
+  matchId          String       @map("match_id")
+  name             String       @map("guest_name")
+  assignedPosition String?      @map("assigned_position")
+  jerseyNumber     Int?         @map("jersey_number")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  match            Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  matchEvents      MatchEvent[]
+  @@map("guest_players")
+}
+
+model MatchEvent {
+  id            String       @id @default(cuid())
+  matchId       String       @map("match_id")
+  playerId      String?      @map("player_id")
+  guestPlayerId String?      @map("guest_player_id")
+  eventType     String       @map("event_type")
+  minute        Int
+  description   String?
+  createdAt     DateTime     @default(now()) @map("created_at")
+  match         Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player        Player?      @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  guestPlayer   GuestPlayer? @relation(fields: [guestPlayerId], references: [id], onDelete: SetNull)
+  @@map("match_events")
+}
+
+model PitchComment {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  content   String   @map("content")
+  parentId  String?  @map("parent_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    PitchComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   PitchComment[] @relation("CommentReplies")
+  @@map("pitch_comments")
+}
+
+model FriendRequest {
+  id          String   @id @default(cuid())
+  requesterId String   @map("requester_id")
+  addresseeId String   @map("addressee_id")
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  requester   User     @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User     @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  @@unique([requesterId, addresseeId])
+  @@map("friend_requests")
+}
+
+model Invite {
+  id         String   @id @default(cuid())
+  managerId  String   @map("manager_id")
+  email      String   @map("email")
+  playerId   String?  @map("player_id")
+  status     String   @default("pending")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  manager    User     @relation("InviteManager", fields: [managerId], references: [id], onDelete: Cascade)
+  player     User?    @relation("InvitePlayer", fields: [playerId], references: [id], onDelete: SetNull)
+  @@unique([managerId, email])
+  @@map("invites")
+}

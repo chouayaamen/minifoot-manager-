@@ -1,0 +1,38 @@
+# Workspace Rules for Mini-Foot Tactical & Roster Manager
+
+## Documentation Compliance
+- All code MUST align with `docs/PRODUCT_BRIEF.md`, `docs/PRD.md`, and `docs/ARCHITECTURE.md`
+- New features require PRD updates before implementation
+- Schema changes require ARCHITECTURE.md updates before migration
+
+## Tech Stack (Defined by Architecture)
+- **Frontend**: React 18 + TypeScript + Vite
+- **Backend**: Node.js + Express + TypeScript
+- **Database**: PostgreSQL (via Prisma ORM)
+- **Auth**: JWT with bcrypt
+- **Image Export**: html2canvas + Canvas API
+- **Drag-and-Drop**: @dnd-kit/core
+
+## Code Conventions
+- Use functional components with hooks
+- Strict TypeScript (no `any`, explicit return types)
+- ESLint + Prettier (run before commit)
+- Path aliases: `@/*` for `src/*`
+
+## Feature Implementation Order
+1. Auth & User/Team setup
+2. Player Registration (FR-1)
+3. Pitch Board & Formations (FR-2)
+4. Fixtures & RSVPs (FR-3)
+5. Lineup Export (FR-4)
+6. Match Center & Stats (FR-5)
+
+## Testing
+- Unit tests: Vitest
+- Integration tests: Supertest
+- E2E: Playwright (critical paths only)
+
+## Git Workflow
+- Feature branches from `main`
+- PR required for all changes
+- Squash merge with conventional commits
