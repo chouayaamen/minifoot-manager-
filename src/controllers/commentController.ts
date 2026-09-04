@@ -14,7 +14,6 @@ export async function listComments(_req: Request, res: Response): Promise<void> 
 
 export async function createComment(req: AuthRequest, res: Response): Promise<void> {
   if (!req.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
-  if (req.user.role === 'manager') { res.status(403).json({ error: 'Only players can create comments — managers reply' }); return; }
   const parsed = z.object({ content: z.string().min(1).max(500) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
   const comment = await prisma.pitchComment.create({

@@ -8,26 +8,42 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         String   @default("player")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  player       Player?
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  role          String   @default("player")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  player        Player?
+  managedSquads Squad[]  @relation("SquadManager")
   pitchComments PitchComment[]
-  sentInvites  Invite[] @relation("InviteManager")
-  receivedInvites Invite[] @relation("InvitePlayer")
-  sentFriends  FriendRequest[] @relation("FriendRequester")
+  sentInvites   Invite[]        @relation("InviteManager")
+  receivedInvites Invite[]      @relation("InvitePlayer")
+  sentFriends   FriendRequest[] @relation("FriendRequester")
   receivedFriends FriendRequest[] @relation("FriendAddressee")
   @@map("users")
+}
+
+model Squad {
+  id           String              @id @default(cuid())
+  name         String
+  code         String              @unique @map("code")
+  managerId    String              @map("manager_id")
+  manager      User                @relation("SquadManager", fields: [managerId], references: [id], onDelete: Cascade)
+  players      Player[]
+  joinRequests SquadJoinRequest[]
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  @@map("squads")
 }
 
 model Player {
   id                String   @id @default(cuid())
   userId            String   @unique @map("user_id")
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  squadId           String?  @map("squad_id")
+  squad             Squad?   @relation(fields: [squadId], references: [id], onDelete: SetNull)
   name              String
   nickname          String?  @map("nickname")
   photoUrl          String?  @map("photo_url")
@@ -45,6 +61,7 @@ model Player {
   updatedAt         DateTime @updatedAt @map("updated_at")
   rsvps             Rsvp[]
   matchEvents       MatchEvent[]
+  joinRequests      SquadJoinRequest[]
   @@map("players")
 }
 
@@ -161,4 +178,27 @@ model Invite {
   player     User?    @relation("InvitePlayer", fields: [playerId], references: [id], onDelete: SetNull)
   @@unique([managerId, email])
   @@map("invites")
+}
+
+model SquadJoinRequest {
+  id        String   @id @default(cuid())
+  squadId   String   @map("squad_id")
+  playerId  String   @map("player_id")
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  squad     Squad    @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  @@unique([squadId, playerId])
+  @@map("squad_join_requests")
+}
+
+model MatchDay {
+  id        String   @id @default(cuid())
+  date      DateTime @map("date")
+  stadium   String   @map("stadium")
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("match_days")
 }

@@ -9,6 +9,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6).max(100),
   role: z.enum(['manager', 'player']).optional().default('player'),
+  squadCode: z.string().min(4).max(12).optional().or(z.literal('')).nullable(),
 });
 
 const loginSchema = z.object({
@@ -29,16 +30,30 @@ export async function registerUser(req: Request, res: Response): Promise<void> {
       res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
       return;
     }
-    const { name, email, password, role } = parsed.data;
+    const { name, email, password, role, squadCode } = parsed.data;
     const exists = await prisma.user.findUnique({ where: { email } });
     if (exists) {
       res.status(409).json({ error: 'Email already registered' });
       return;
     }
+    if (role === 'player' && squadCode) {
+      const code = squadCode.trim().toUpperCase();
+      const squad = await prisma.squad.findUnique({ where: { code } });
+      if (!squad) {
+        res.status(400).json({ error: 'Invalid squad join code', details: { squadCode: `No squad found for code ${code}` } });
+        return;
+      }
+    }
     const passwordHash = await hashPassword(password);
     const user = await prisma.user.create({
       data: { name, email, passwordHash, role: role as any },
     });
+    let squadJoined: { id: string; name: string; code: string } | null = null;
+    if (role === 'player' && squadCode) {
+      const code = squadCode.trim().toUpperCase();
+      const squad = await prisma.squad.findUnique({ where: { code } });
+      if (squad) squadJoined = { id: squad.id, name: squad.name, code: squad.code };
+    }
     const token = signToken({ userId: user.id, email: user.email, role: user.role });
     res.status(201).json({
       id: user.id,
@@ -46,6 +61,8 @@ export async function registerUser(req: Request, res: Response): Promise<void> {
       email: user.email,
       role: user.role,
       token,
+      squadCode: squadJoined?.code || null,
+      pendingSquadId: squadJoined?.id || null,
     });
   } catch (err) {
     console.error(err);

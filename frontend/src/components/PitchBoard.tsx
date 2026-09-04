@@ -11,9 +11,7 @@ export type RosterPlayer = {
   overallRating?: number | null;
 };
 
-export type Guest = { id: string; name: string; assignedPosition?: string | null; jerseyNumber?: number | null };
-
-export type Assignments = Record<string, { playerId?: string | null; guestId?: string | null; positionName: string }>;
+export type Assignments = Record<string, { playerId?: string | null; positionName: string }>;
 
 type Props = {
   matchId: string;
@@ -21,12 +19,11 @@ type Props = {
   initialFormation?: string;
   initialAssignments?: Assignments;
   roster: RosterPlayer[];
-  guests: Guest[];
   fixture?: { opponent: string; matchDate: string; venue?: string | null; formatType: string };
   teamName?: string;
   readOnly?: boolean;
   onSave?: (data: { formationName: string; pitchPositionsJson: Assignments }) => void;
-  onAddGuest?: (name: string, position?: string) => void;
+  commentBoard?: React.ReactNode;
 };
 
 export const PitchBoard: React.FC<Props> = ({
@@ -34,12 +31,11 @@ export const PitchBoard: React.FC<Props> = ({
   initialFormation,
   initialAssignments = {},
   roster,
-  guests,
   fixture,
   teamName,
   readOnly = false,
   onSave,
-  onAddGuest,
+  commentBoard,
 }) => {
   const [format, setFormat] = useState<FormatType>(initialFormat);
   const formations = useMemo(() => FORMATIONS[format], [format]);
@@ -47,14 +43,10 @@ export const PitchBoard: React.FC<Props> = ({
   const slots: Slot[] = useMemo(() => formations.find((f) => f.name === formationName)?.slots || formations[0]?.slots || [], [formations, formationName]);
   const [assignments, setAssignments] = useState<Assignments>(initialAssignments);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [guestName, setGuestName] = useState('');
-  const [guestPos, setGuestPos] = useState('MID');
   const [dragId, setDragId] = useState<string | null>(null);
 
   const assignedPlayerIds = new Set(Object.values(assignments).map((a) => a.playerId).filter(Boolean) as string[]);
-  const assignedGuestIds = new Set(Object.values(assignments).map((a) => a.guestId).filter(Boolean) as string[]);
   const bench = roster.filter((p) => !assignedPlayerIds.has(p.id));
-  const unassignedGuests = guests.filter((g) => !assignedGuestIds.has(g.id));
 
   function handleFormatChange(f: FormatType): void {
     setFormat(f);
@@ -70,7 +62,7 @@ export const PitchBoard: React.FC<Props> = ({
     if (!def) return;
     const next: Assignments = {};
     def.slots.forEach((s) => {
-      next[s.id] = assignments[s.id] || { playerId: null, guestId: null, positionName: s.position };
+      next[s.id] = assignments[s.id] || { playerId: null, positionName: s.position };
     });
     setAssignments(next);
     setSelectedSlot(null);
@@ -79,34 +71,24 @@ export const PitchBoard: React.FC<Props> = ({
   function assignToSlot(slotId: string, playerId: string): void {
     const slot = slots.find((s) => s.id === slotId);
     if (!slot) return;
-    const prev = assignments[slotId];
     const next: Assignments = { ...assignments };
-    if (prev?.guestId) next[slotId] = { playerId, guestId: null, positionName: slot.position };
-    else next[slotId] = { playerId, guestId: null, positionName: slot.position };
+    next[slotId] = { playerId, positionName: slot.position };
     const otherSlot = Object.entries(assignments).find(([, v]) => v.playerId === playerId)?.[0];
     if (otherSlot && otherSlot !== slotId) delete (next[otherSlot] as Assignments[string]).playerId;
     setAssignments(next);
     setSelectedSlot(null);
   }
 
-  function assignGuestToSlot(slotId: string, guestId: string): void {
-    const slot = slots.find((s) => s.id === slotId);
-    if (!slot) return;
-    setAssignments((prev) => ({ ...prev, [slotId]: { playerId: null, guestId, positionName: slot.position } }));
-    setSelectedSlot(null);
-  }
-
   function clearSlot(slotId: string): void {
     const slot = slots.find((s) => s.id === slotId);
     if (!slot) return;
-    setAssignments((prev) => ({ ...prev, [slotId]: { playerId: null, guestId: null, positionName: slot.position } }));
+    setAssignments((prev) => ({ ...prev, [slotId]: { playerId: null, positionName: slot.position } }));
   }
 
   function handleDragStart(playerId: string): void { setDragId(playerId); }
   function handleDrop(slotId: string): void { if (dragId) assignToSlot(slotId, dragId); setDragId(null); }
 
   const playerMap = useMemo(() => new Map(roster.map((p) => [p.id, p])), [roster]);
-  const guestMap = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
 
   return (
     <div style={{ fontFamily: 'Inter,system-ui,sans-serif', maxWidth: 980, margin: '0 auto' }}>
@@ -149,8 +131,7 @@ export const PitchBoard: React.FC<Props> = ({
           {slots.map((slot) => {
             const a = assignments[slot.id];
             const p = a?.playerId ? playerMap.get(a.playerId) : null;
-            const g = a?.guestId ? guestMap.get(a.guestId) : null;
-            const filled = Boolean(p || g);
+            const filled = Boolean(p);
             return (
               <div
                 key={slot.id}
@@ -185,12 +166,6 @@ export const PitchBoard: React.FC<Props> = ({
                     <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 64 }}>{p.name}</div>
                     <div style={{ fontSize: 8, color: '#6b7280' }}>{slot.label}</div>
                   </>
-                ) : g ? (
-                  <>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f59e0b', color: 'white', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 11 }}>G</div>
-                    <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2 }}>{g.name}</div>
-                    <div style={{ fontSize: 8, color: '#92400e' }}>GUEST · {slot.label}</div>
-                  </>
                 ) : (
                   <>
                     <div style={{ fontSize: 18, color: '#9ca3af' }}>+</div>
@@ -208,10 +183,7 @@ export const PitchBoard: React.FC<Props> = ({
                       {bench.map((pl) => (
                         <button key={pl.id} onClick={() => assignToSlot(slot.id, pl.id)} style={assignBtn}>{pl.name} · {pl.primaryPosition}</button>
                       ))}
-                      {unassignedGuests.map((gg) => (
-                        <button key={gg.id} onClick={() => assignGuestToSlot(slot.id, gg.id)} style={{ ...assignBtn, background: '#fffbeb', borderColor: '#f59e0b' }}>{gg.name} (Guest)</button>
-                      ))}
-                      {bench.length === 0 && unassignedGuests.length === 0 && <span style={{ fontSize: 11, color: '#9ca3af' }}>No players available</span>}
+                      {bench.length === 0 && <span style={{ fontSize: 11, color: '#9ca3af' }}>No players available</span>}
                     </div>
                   </div>
                 )}
@@ -233,36 +205,19 @@ export const PitchBoard: React.FC<Props> = ({
                     <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pl.name}</div>
                     <div style={{ fontSize: 10, color: '#6b7280' }}>{pl.primaryPosition}{pl.jerseyNumber ? ` · #${pl.jerseyNumber}` : ''}</div>
                   </div>
-                  {!readOnly && <button onClick={() => { const empty = slots.find((s) => !assignments[s.id]?.playerId && !assignments[s.id]?.guestId); if (empty) assignToSlot(empty.id, pl.id); }} style={{ fontSize: 10, padding: '4px 6px', borderRadius: 6, border: '1px solid #16a34a', background: 'white', color: '#16a34a', cursor: 'pointer' }}>Add</button>}
+                  {!readOnly && <button onClick={() => { const empty = slots.find((s) => !assignments[s.id]?.playerId); if (empty) assignToSlot(empty.id, pl.id); }} style={{ fontSize: 10, padding: '4px 6px', borderRadius: 6, border: '1px solid #16a34a', background: 'white', color: '#16a34a', cursor: 'pointer' }}>Add</button>}
                 </div>
               ))}
             </div>
           </div>
 
-          {!readOnly ? (
-            <div style={{ background: '#fffbeb', borderRadius: 12, border: '1px solid #fcd34d', padding: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.6, color: '#92400e', marginBottom: 6 }}>NEED 1 MORE?</div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Guest name" style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: '1px solid #fcd34d', fontSize: 12 }} />
-                <select value={guestPos} onChange={(e) => setGuestPos(e.target.value)} style={{ padding: '6px 6px', borderRadius: 8, border: '1px solid #fcd34d', fontSize: 12 }}>
-                  <option value="GK">GK</option><option value="DEF">DEF</option><option value="MID">MID</option><option value="PIVOT">PIVOT</option>
-                </select>
-              </div>
-              <button onClick={() => { if (guestName.trim() && onAddGuest) { onAddGuest(guestName.trim(), guestPos); setGuestName(''); } }} style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#f59e0b', color: 'white', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>+ Add Guest Player</button>
-              {unassignedGuests.length > 0 && (
-                <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
-                  {unassignedGuests.map((g) => (
-                    <div key={g.id} style={{ fontSize: 12, padding: '4px 6px', background: 'white', borderRadius: 6, border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{g.name} · {g.assignedPosition || 'MID'}</span>
-                      <button onClick={() => { const empty = slots.find((s) => !assignments[s.id]?.playerId && !assignments[s.id]?.guestId); if (empty) assignGuestToSlot(empty.id, g.id); }} style={{ fontSize: 10, border: '1px solid #f59e0b', background: 'white', borderRadius: 6, cursor: 'pointer' }}>Place</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
+          {!readOnly && (
+            <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:12, padding:10, fontSize:12, color:'#6b7280', textAlign:'center' }}>Drag players from bench onto pitch. Use + to assign.</div>
+          )}
+          {readOnly && (
             <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:12, padding:10, fontSize:12, color:'#6b7280', textAlign:'center' }}>View-only — manager lineup final</div>
           )}
+          {commentBoard && <div style={{ marginTop: 4 }}>{commentBoard}</div>}
         </div>
       </div>
     </div>

@@ -17,6 +17,10 @@ export interface FutCardProps {
     winRate?: number;
   } | null;
   variant?: 'gold' | 'silver' | 'bronze';
+  showAddFriend?: boolean;
+  onAddFriend?: () => void;
+  friendBadgeLabel?: string;
+  friendBadgeDisabled?: boolean;
 }
 
 function tier(rating?: number | null, variant?: string): string {
@@ -47,6 +51,10 @@ export const PlayerCard: React.FC<FutCardProps> = ({
   overallRating,
   stats,
   variant,
+  showAddFriend,
+  onAddFriend,
+  friendBadgeLabel,
+  friendBadgeDisabled,
 }) => {
   const t = tier(overallRating, variant);
   const bg =
@@ -158,19 +166,30 @@ export const PlayerCard: React.FC<FutCardProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, padding: '8px 10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, padding: '8px 10px', flexWrap: 'wrap', alignItems:'center' }}>
           <span style={badgeStyle(accent)}>{heightCm ? `${heightCm}cm` : '—cm'}</span>
           <span style={badgeStyle(accent)}>{weightKg ? `${weightKg}kg` : '—kg'}</span>
           <span style={badgeStyle(accent)}>{footLabel(preferredFoot)} foot</span>
           <span style={{ ...badgeStyle(accent), background: accent, color: 'white' }}>{primaryPosition}</span>
           {secondaryPosition && <span style={badgeStyle(accent, true)}>{secondaryPosition}</span>}
+          {friendBadgeLabel ? (
+            friendBadgeLabel==='Accept' || friendBadgeLabel==='Cancel Request' ? (
+              <button onClick={onAddFriend} style={{ marginLeft:'auto', padding:'4px 8px', borderRadius:999, border:'none', background: friendBadgeLabel==='Cancel Request' ? '#6b7280' : '#16a34a', color:'white', fontWeight:800, fontSize:10, cursor:'pointer' }}>{friendBadgeLabel}</button>
+            ) : (
+              <span style={{ marginLeft:'auto', padding:'4px 8px', borderRadius:999, border:'none', background: friendBadgeLabel==='You' ? '#374151' : friendBadgeLabel==='✓ Friend' ? '#16a34a' : '#e5e7eb', color:'white', fontWeight:800, fontSize:10 }}>{friendBadgeLabel}</span>
+            )
+          ) : showAddFriend ? (
+            <button onClick={onAddFriend} style={{ marginLeft:'auto', padding:'4px 8px', borderRadius:999, border:'none', background:'#16a34a', color:'white', fontWeight:800, fontSize:10, cursor:'pointer' }}>+ Add Friend</button>
+          ) : null}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: `1px solid ${accent}18`, background: `${accent}08` }}>
-          <StatCell label="GOALS" value={stats?.goals} />
-          <StatCell label="ASSISTS" value={stats?.assists} />
-          <StatCell label="APPS" value={stats?.appearances} />
-        </div>
+        {stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: `1px solid ${accent}18`, background: `${accent}08` }}>
+            <StatCell label="GOALS" value={stats.goals} />
+            <StatCell label="ASSISTS" value={stats.assists} />
+            <StatCell label="APPS" value={stats.appearances} />
+          </div>
+        )}
         {stats?.winRate !== undefined && (
           <div style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: '#6b7280', padding: '4px 0 8px' }}>
             WIN RATE {stats.winRate}%

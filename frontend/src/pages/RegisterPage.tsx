@@ -17,11 +17,11 @@ export default function RegisterPage({ onAuthed, switchToLogin }: Props) {
     e.preventDefault();
     setLoading(true); setErr(null);
     const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, role }) });
-    const j = await r.json();
-    if (!r.ok) { setErr(j.details? JSON.stringify(j.details): j.error || 'Registration failed'); setLoading(false); return; }
+    const j = await r.json() as { error?: string; details?: unknown };
+    if (!r.ok) { setErr(j.details ? JSON.stringify(j.details) : j.error || 'Registration failed'); setLoading(false); return; }
     const r2 = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-    const j2 = await r2.json();
-    if (!r2.ok) setErr(j2.error); else onAuthed(j2.token as string, j2);
+    const j2 = await r2.json() as { error?: string; token?: string };
+    if (!r2.ok) setErr(j2.error || 'Login failed'); else onAuthed(j2.token as string, j2 as unknown as Record<string, unknown>);
     setLoading(false);
   }
 

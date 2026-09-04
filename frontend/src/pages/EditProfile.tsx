@@ -51,7 +51,7 @@ export default function EditProfile({ token, onSaved }: Props) {
     }
     const body: Record<string,unknown> = { nickname: nickname||null, bio: bio||null, phone: phone||null, photoUrl: finalPhotoUrl, heightCm: heightCm===''? null: Number(heightCm), weightKg: weightKg===''? null: Number(weightKg), primaryPosition, secondaryPosition: secondaryPosition||null, preferredFoot, jerseyNumber: jerseyNumber===''? null: Number(jerseyNumber) };
     const r = await fetch('/api/players/profile', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify(body)});
-    const j = await r.json();
+    const j = await r.json() as { error?: string };
     if(!r.ok) setMsg(j.error || 'Save failed'); else { setMsg('Profile saved ✓'); onSaved?.(); }
     setLoading(false);
   }

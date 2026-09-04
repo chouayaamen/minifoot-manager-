@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react';
-import PlayerCard from './components/PlayerCard';
+import Roster from './components/Roster';
 import PitchBoard from './components/PitchBoard';
-import MatchForm from './components/MatchForm';
-import RsvpCard from './components/RsvpCard';
-import MatchCenter from './components/MatchCenter';
-import Leaderboard from './components/Leaderboard';
+import MatchDay from './components/MatchDay';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import EditProfile from './pages/EditProfile';
 import CommentBoard from './components/CommentBoard';
 import InvitesPanel from './components/InvitesPanel';
 
-type Tab = 'roster'|'pitch'|'fixtures'|'center'|'board'|'profile'|'friends';
+type Tab = 'squad'|'pitch'|'matchday'|'profile'|'friends';
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('roster');
+  const [tab, setTab] = useState<Tab>('squad');
   const [token, setToken] = useState<string>(() => localStorage.getItem('token') || '');
   const [authPage, setAuthPage] = useState<'login'|'register'>('login');
   const [me, setMe] = useState<Record<string,unknown> | null>(() => {
@@ -25,6 +22,7 @@ export default function App() {
   const [matches, setMatches] = useState<Record<string,unknown>[]>([]);
   const [activeMatch, setActiveMatch] = useState<string>('');
   const [isInvited, setIsInvited] = useState<boolean>(false);
+  const [hasSquad, setHasSquad] = useState<boolean>(false);
   const [friendQ, setFriendQ] = useState('');
   const [friendResults, setFriendResults] = useState<Record<string,unknown>[]>([]);
   const [friendMsg, setFriendMsg] = useState<string | null>(null);
@@ -38,6 +36,7 @@ export default function App() {
   useEffect(()=>{ if(me) localStorage.setItem('me', JSON.stringify(me)); else localStorage.removeItem('me'); },[me]);
   useEffect(()=>{ if(token && !me) { fetch('/api/auth/me', { headers:{ Authorization:`Bearer ${token}` }}).then((r)=> r.ok? r.json(): null).then((j)=> j && setMe(j)); } },[]);
   useEffect(()=>{ const role = (me as {role?:string})?.role; if(token && role !== 'manager') { fetch('/api/invites/status', { headers:{ Authorization:`Bearer ${token}` }}).then((r)=> r.ok? r.json(): null).then((j)=> j && setIsInvited(!!j.isInvited)); } else if(role==='manager') setIsInvited(true); },[token, me]);
+  useEffect(()=>{ if(!token) { setHasSquad(false); return; } fetch('/api/squad/me', { headers:{ Authorization:`Bearer ${token}` }}).then((r)=> r.ok? r.json(): null).then((j)=> setHasSquad(!!j?.squad)); },[token]);
 
   function handleAuthed(t: string, user: Record<string, unknown>): void {
     const isNew = !token;
@@ -81,21 +80,53 @@ export default function App() {
   }
 
   const isManager = (me as {role?:string})?.role === 'manager';
-  const canSeeAll = isManager || isInvited;
+  const canSeeAll = isManager || isInvited || hasSquad;
 
   if (!canSeeAll) {
     return (
       <div style={{ minHeight:'100vh', background:'#f3f4f6' }}>
-        <header style={{ background:'#111827', color:'white', padding:'12px 18px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <header style={{ background:'#111827', color:'white', padding:'12px 18px', display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
           <b>⚽ Mini-Foot Manager</b>
-          <button onClick={()=>{ setToken(''); localStorage.removeItem('token'); setMe(null); localStorage.removeItem('me');}} style={btnSm}>Logout</button>
-        </header>
-        <main style={{ maxWidth:600, margin:'24px auto', padding:'0 14px', display:'grid', gap:16 }}>
-          <div style={{ background:'#fef3c7', border:'1px solid #fde68a', borderRadius:12, padding:14, textAlign:'center' }}>
-            <div style={{ fontWeight:800 }}>Waiting for manager invite — Friends & Invites below</div>
-            <div style={{ fontSize:12, color:'#92400e', marginTop:4 }}>Add friends or wait for email invite to unlock roster & pitch.</div>
+          <nav style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {(['squad','matchday','profile','friends'] as Tab[]).map((t)=>(
+              <button key={t} onClick={()=> setTab(t)} style={{ padding:'6px 10px', borderRadius:999, border:'1px solid #374151', background: tab===t?'#16a34a':'transparent', color:'white', fontWeight:700, fontSize:12, cursor:'pointer', textTransform:'capitalize' }}>{t==='profile'?'Edit Profile': t==='squad'?'Squad': t==='matchday'?'Match Day': t}</button>
+            ))}
+          </nav>
+          <div style={{ marginLeft:'auto', display:'flex', gap:6, alignItems:'center' }}>
+            {me && <span style={{ fontSize:11, padding:'4px 8px', borderRadius:999, background: isManager?'#16a34a':'#374151', color:'white', fontWeight:700 }}>{isManager?'MANAGER':'PLAYER'}</span>}
+            <span style={{ fontSize:12, color:'#9ca3af' }}>{(me as {email?:string})?.email || 'logged in'}</span>
+            <button onClick={()=>{ setToken(''); localStorage.removeItem('token'); setMe(null); localStorage.removeItem('me');}} style={btnSm}>Logout</button>
           </div>
-          <div style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:12, padding:12, display:'grid', gap:8 }}>
+        </header>
+        <main style={{ maxWidth:700, margin:'24px auto', padding:'0 14px', display:'grid', gap:16 }}>
+          {tab==='squad' && (
+            <section aria-label="Squad section" style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:16, padding:20, display:'grid', gap:12 }}>
+              <h2 style={{ margin:0 }}>Squad <span style={{ fontSize:11, padding:'4px 8px', borderRadius:999, background:'#fef3c7', color:'#92400e', border:'1px solid #fde68a' }}>New — create profile then join</span></h2>
+              <div style={{ fontSize:12, color:'#6b7280' }}>Step 1: Complete <b>Edit Profile</b> (Profile tab) → Step 2: Enter code here to join.</div>
+              <Roster token={token} isManager={isManager} />
+            </section>
+          )}
+        {tab==='matchday' && <MatchDay token={token} isManager={isManager} />}
+
+        {tab==='profile' && (
+            <section aria-label="Edit Profile section" style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:16, padding:20, display:'grid', gap:12 }}>
+              <h2 style={{ margin:0 }}>Edit Profile</h2>
+              <EditProfile token={token} onSaved={()=> loadPlayers()} />
+            </section>
+          )}
+          {tab!=='squad' && tab!=='profile' && tab!=='friends' && tab!=='matchday' && (
+            <section aria-label="Squad section" style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:16, padding:20, display:'grid', gap:12 }}>
+              <h2 style={{ margin:0 }}>Squad</h2>
+              <Roster token={token} isManager={isManager} />
+            </section>
+          )}
+          {tab==='friends' && (
+            <>
+            <div style={{ background:'#fef3c7', border:'1px solid #fde68a', borderRadius:12, padding:14, textAlign:'center' }}>
+              <div style={{ fontWeight:800 }}>Friends & Invites</div>
+              <div style={{ fontSize:12, color:'#92400e', marginTop:4 }}>Add friends to get invited faster.</div>
+            </div>
+            <div style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:12, padding:12, display:'grid', gap:8 }}>
             <div style={{ fontWeight:800, fontSize:13, color:'#92400e' }}>📩 Your Invitations — Accept to unlock</div>
             {invites.length===0 ? <div style={{ fontSize:12, color:'#9ca3af' }}>No invites yet — ask a manager to invite you by email.</div> : invites.filter((x)=> (x as {status:string}).status==='pending').length===0 ? <div style={{ fontSize:12, color:'#16a34a' }}>No pending invites — you may have already accepted.</div> : invites.filter((x)=> (x as {status:string}).status==='pending').map((inv)=>(
               <div key={inv.id as string} style={{ display:'flex', gap:8, alignItems:'center', background:'#f9fafb', padding:'8px 10px', borderRadius:8, fontSize:12, border:'1px solid #fde68a' }}>
@@ -131,8 +162,9 @@ export default function App() {
               );
             })}
           </div>
-          <EditProfile token={token} onSaved={()=> loadPlayers()} />
           <button onClick={()=> fetch('/api/invites/status', { headers:{ Authorization:`Bearer ${token}` }}).then((r)=> r.json()).then((j)=> setIsInvited(!!j.isInvited))} style={btn}>Check invite status — unlock</button>
+          </>
+          )}
         </main>
       </div>
     );
@@ -143,8 +175,8 @@ export default function App() {
       <header style={{ background:'#111827', color:'white', padding:'12px 18px', display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
         <b>⚽ Mini-Foot Manager</b>
         <nav style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-          {(['roster','pitch','fixtures','center','board','profile','friends'] as Tab[]).map((t)=>(
-            <button key={t} onClick={()=> setTab(t)} style={{ padding:'6px 10px', borderRadius:999, border:'1px solid #374151', background: tab===t?'#16a34a':'transparent', color:'white', fontWeight:700, fontSize:12, cursor:'pointer', textTransform:'capitalize' }}>{t==='profile'?'Edit Profile':t}</button>
+          {(['squad','pitch','matchday','profile','friends'] as Tab[]).map((t)=>(
+            <button key={t} onClick={()=> setTab(t)} style={{ padding:'6px 10px', borderRadius:999, border:'1px solid #374151', background: tab===t?'#16a34a':'transparent', color:'white', fontWeight:700, fontSize:12, cursor:'pointer', textTransform:'capitalize' }}>{t==='profile'?'Edit Profile': t==='squad'?'Squad': t}</button>
           ))}
         </nav>
         <div style={{ marginLeft:'auto', display:'flex', gap:6, alignItems:'center' }}>
@@ -160,46 +192,10 @@ export default function App() {
       </header>
 
       <main style={{ maxWidth:1100, margin:'18px auto', padding:'0 14px', display:'grid', gap:16 }}>
-        {tab==='roster' && (
-          <div style={{ display:'grid', gap:12 }}>
-            <h2 style={{ margin:0 }}>Roster — FUT Cards (live stats)</h2>
-            <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'8px 10px', fontSize:12, color:'#166534' }}>Find & invite friends in the <b>Friends</b> tab — or use quick Add per card below.</div>
-            {players.length===0? <span style={{ color:'#6b7280' }}>No players — login & create profile via POST /api/players/profile</span> :
-              <div style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
-                {players.map((p)=>{
-                  const isOwn = (p as {user?:{email:string}}).user?.email === (me as {email?:string})?.email;
-                  const email = (p as {user?:{email:string}}).user?.email as string;
-                  const st = email ? friendStatus(email) : { label:'Send Request', disabled:false } as never;
-                  return (
-                    <div key={p.id as string} style={{ display:'grid', gap:6, justifyItems:'center' }}>
-                      <PlayerCard name={p.name as string} photoUrl={p.photoUrl as string} jerseyNumber={p.jerseyNumber as number} heightCm={p.heightCm as number} weightKg={p.weightKg as number} preferredFoot={p.preferredFoot as string} primaryPosition={p.primaryPosition as string} secondaryPosition={p.secondaryPosition as string} overallRating={p.overallRating as number} stats={p.stats as {goals:number;assists:number;appearances:number}} />
-                      {!isOwn && email && (
-                        <div style={{ display:'flex', gap:4, width:'100%' }}>
-                          <button disabled={(st as {disabled:boolean}).disabled && (st as {label:string}).label!=='Accept Request'} onClick={async ()=>{
-                            if((st as {label:string}).label==='Accept Request' && (st as {action?:string}).action){
-                              const r = await fetch(`/api/friends/${(st as {action:string}).action}/accept`, { method:'POST', headers:{ Authorization:`Bearer ${token}`}});
-                              const j = await r.json(); alert(r.ok?'Accepted ✓': j.error); if(r.ok) loadFriends();
-                            } else if((st as {label:string}).label==='Send Request'){
-                              const r = await fetch('/api/friends/request', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ email })});
-                              const j = await r.json(); alert(r.ok?'Friend request sent ✓': j.error); if(r.ok) loadFriends();
-                            }
-                          }} style={{ flex:1, ...btnSm, background: (st as {label:string}).label==='Friends ✓'?'#16a34a': (st as {label:string}).label==='Request Sent'?'#9ca3af': (st as {label:string}).label==='Accept Request'?'#16a34a':'#111827', opacity: (st as {disabled:boolean}).disabled && (st as {label:string}).label!=='Accept Request' ? 0.7 : 1 }}>{(st as {label:string}).label}</button>
-                          {(st as {removeId?:string}).removeId && <button onClick={async ()=>{
-                            const rid = (st as {removeId:string}).removeId;
-                            const isPending = (st as {label:string}).label==='Request Sent';
-                            const url = isPending ? `/api/friends/${rid}/cancel` : `/api/friends/${rid}`;
-                            const method = isPending ? 'POST' : 'DELETE';
-                            const r = await fetch(url, { method, headers:{ Authorization:`Bearer ${token}` }});
-                            const j = await r.json(); alert(r.ok?'Removed ✓': j.error); if(r.ok) loadFriends();
-                          }} style={{ ...btnSm, background:'#dc2626' }}>Remove</button>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>}
-            <button onClick={loadPlayers} style={btn}>Refresh Roster</button>
-          </div>
+        {tab==='squad' && (
+          <section id="squad" aria-label="Squad section">
+            <Roster token={token} isManager={isManager} />
+          </section>
         )}
 
         {tab==='pitch' && (
@@ -217,7 +213,6 @@ export default function App() {
               <PitchBoard
                 matchId={activeMatch || 'demo'}
                 roster={rosterForBoard}
-                guests={[]}
                 fixture={fixture}
                 teamName="Mini-Foot XI"
                 readOnly={!isManager}
@@ -226,51 +221,13 @@ export default function App() {
                   const r=await fetch(`/api/matches/${activeMatch}/lineup`, { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify(data)});
                   alert(r.ok? 'Lineup saved ✓' : (await r.json()).error);
                 } : undefined}
-                onAddGuest={isManager ? async (name,pos)=>{
-                  if(!activeMatch) return alert('Select a match first');
-                  const r=await fetch(`/api/matches/${activeMatch}/guests`, { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ name, assignedPosition: pos })});
-                  alert(r.ok? 'Guest added' : (await r.json()).error);
-                } : undefined}
+                commentBoard={<CommentBoard token={token} isManager={isManager} />}
               />
             </div>
-            <CommentBoard token={token} isManager={isManager} />
           </div>
         )}
 
-        {tab==='fixtures' && (
-          <div style={{ display:'grid', gap:16 }}>
-            <h2 style={{ margin:0 }}>Fixtures & RSVP { !isManager && <span style={{ fontSize:12, color:'#6b7280' }}>— RSVP only</span>}</h2>
-            {isManager ? <MatchForm token={token} onCreated={()=> loadMatches()} /> : <div style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:12, padding:12, color:'#6b7280', fontSize:12 }}>Only managers can create fixtures. Browse matches below and RSVP.</div>}
-            <div style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:12, padding:12 }}>
-              <b style={{ fontSize:13 }}>Upcoming & Past Matches</b>
-              <div style={{ display:'grid', gap:6, marginTop:8 }}>
-                {matches.map((m)=>(
-                  <div key={m.id as string} style={{ display:'flex', gap:8, alignItems:'center', padding:'8px 10px', background:'#f9fafb', borderRadius:8, fontSize:12 }}>
-                    <span><b>{m.opponent as string}</b> {m.formatType as string} {new Date(m.matchDate as string).toLocaleDateString()} {(m as {clash?:{clash:boolean}}).clash?.clash? '⚠️ clash':''} — {(m as {rsvpCounts?:{total:number}}).rsvpCounts?`RSVPs ${ (m as {rsvpCounts:{total:number}}).rsvpCounts.total}`:''}</span>
-                    <button onClick={()=> setActiveMatch(m.id as string)} style={{ marginLeft:'auto', ...btnSm, background: activeMatch===m.id?'#16a34a':'#111827' }}>{activeMatch===m.id?'Active':'Select'}</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {activeMatch && <RsvpCard matchId={activeMatch} token={token} />}
-          </div>
-        )}
-
-        {tab==='center' && (
-          <div style={{ display:'grid', gap:16 }}>
-            <h2 style={{ margin:0 }}>Match Center — Score & Events { !isManager && <span style={{ fontSize:12, color:'#6b7280' }}>— manager only</span>}</h2>
-            {!activeMatch? <span style={{ color:'#6b7280' }}>Select a fixture in Fixtures tab first.</span> :
-              isManager ? <MatchCenter matchId={activeMatch} token={token} roster={rosterForBoard.map((r)=> ({ id:r.id, name:r.name, jerseyNumber:r.jerseyNumber }))} onSaved={()=> loadMatches()} />
-              : <div style={{ background:'#fef3c7', border:'1px solid #fde68a', color:'#92400e', padding:'12px', borderRadius:10, fontSize:12 }}>Only managers can log scores and events. View results in Leaderboard.</div>}
-          </div>
-        )}
-
-        {tab==='board' && (
-          <div>
-            <h2 style={{ margin:'0 0 8px' }}>Leaderboard — Squad Analytics</h2>
-            <Leaderboard />
-          </div>
-        )}
+        {tab==='matchday' && <MatchDay token={token} isManager={isManager} />}
 
         {tab==='profile' && (
           <div style={{ display:'grid', gap:16 }}>

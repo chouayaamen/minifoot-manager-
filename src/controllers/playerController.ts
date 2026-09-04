@@ -15,6 +15,7 @@ const profileSchema = z.object({
   nickname: z.string().min(2).max(30).optional().or(z.literal('')).nullable(),
   bio: z.string().max(280).optional().or(z.literal('')).nullable(),
   phone: z.string().max(20).optional().or(z.literal('')).nullable(),
+  squadCode: z.string().min(4).max(12).optional().or(z.literal('')).nullable(),
 }).refine(
   (d) => !(d.secondaryPosition && d.secondaryPosition === d.primaryPosition),
   { message: 'Secondary position must differ from primary', path: ['secondaryPosition'] }
@@ -44,6 +45,13 @@ export async function upsertProfile(req: AuthRequest, res: Response): Promise<vo
     const data = parsed.data;
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    let squadId: string | null = null;
+    if (data.squadCode) {
+      const code = data.squadCode.trim().toUpperCase();
+      const squad = await prisma.squad.findUnique({ where: { code } });
+      if (!squad) { res.status(400).json({ error: 'Invalid squad join code', details: `No squad for code ${code}` }); return; }
+      squadId = squad.id;
+    }
     const overallRating = calcOverall(data.heightCm ?? null, data.weightKg ?? null, data.primaryPosition);
     const existing = await prisma.player.findUnique({ where: { userId: user.id } });
     const playerName = data.name ?? user.name;
@@ -63,10 +71,11 @@ export async function upsertProfile(req: AuthRequest, res: Response): Promise<vo
       jerseyNumber: data.jerseyNumber ?? null,
       overallRating,
     };
+    const squadPatch = squadId ? { squadId } : data.squadCode === '' && existing ? { squadId: null as unknown as string } : {};
     if (existing) {
-      player = await prisma.player.update({ where: { userId: user.id }, data: baseData });
+      player = await prisma.player.update({ where: { userId: user.id }, data: { ...baseData, ...squadPatch as object } });
     } else {
-      player = await prisma.player.create({ data: { userId: user.id, ...baseData } });
+      player = await prisma.player.create({ data: { userId: user.id, ...baseData, ...squadPatch as object } });
     }
     res.status(existing ? 200 : 201).json(player);
   } catch (err) {

@@ -20,9 +20,22 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'minifoot-backend' });
 });
 
-app.use(express.static(path.join(__dirname, '../public')));
+const frontendDist = path.join(__dirname, '../frontend/dist');
+const publicDir = path.join(__dirname, '../public');
+app.use(express.static(frontendDist));
+app.use(express.static(publicDir));
 app.get('/', (_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  const p = require('fs').existsSync(path.join(frontendDist, 'index.html')) ? path.join(frontendDist, 'index.html') : path.join(publicDir, 'index.html');
+  res.sendFile(p);
+});
+app.use((req: Request, res: Response, next) => {
+  if (req.path.startsWith('/api') || req.path === '/health') return next();
+  if (req.method !== 'GET') return next();
+  const fs = require('fs');
+  const idx = path.join(frontendDist, 'index.html');
+  if (fs.existsSync(idx)) return res.sendFile(idx);
+  if (fs.existsSync(path.join(publicDir, 'index.html'))) return res.sendFile(path.join(publicDir, 'index.html'));
+  next();
 });
 
 app.use((_req: Request, res: Response) => {
