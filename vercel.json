@@ -1,7 +1,7 @@
 {
-  "buildCommand": "npx prisma generate --no-hint && tsc && npm run build --prefix frontend",
+  "buildCommand": "npx prisma generate && tsc && npm run build --prefix frontend",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm install && npx prisma generate --no-hint && npm install --prefix frontend",
+  "installCommand": "npm install && npx prisma generate && npm install --prefix frontend",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api" },
     { "source": "/health", "destination": "/api" },
