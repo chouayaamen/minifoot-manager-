@@ -6,7 +6,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ status: 'ok', service: 'minifoot-api', vercel: true, url: req.url });
   }
   try {
-    const app = (await import('../src/index')).default;
+    const app = (await import('../dist/index.js')).default;
     return (app as unknown as (r: unknown, s: unknown) => unknown)(req, res);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
