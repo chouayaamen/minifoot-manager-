@@ -13,6 +13,9 @@ const envSchema = z.object({
     .default('development'),
   BCRYPT_ROUNDS: z.coerce.number().default(10),
 });
+if (process.env.VERCEL && process.env.DATABASE_URL?.startsWith('file:')) {
+  process.env.DATABASE_URL = 'file:/tmp/dev.db';
+}
 
 const parsed = envSchema.safeParse(process.env);
 

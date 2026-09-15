@@ -5,12 +5,11 @@ import fs from 'fs';
 import { upsertProfile, getPlayerById, listPlayers, getMyProfile, uploadAvatar } from '../controllers/playerController';
 import { authenticate } from '../middleware/authenticate';
 
-const uploadDir = path.join(process.cwd(), 'public/uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
+const uploadDir = path.join(process.cwd(), process.env.VERCEL ? '/tmp/uploads' : 'public/uploads');
+try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
     cb(null, uploadDir);
   },
   filename: (_req, file, cb) => {
