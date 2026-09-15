@@ -3,6 +3,16 @@ import { z } from 'zod';
 
 dotenv.config();
 
+if (process.env.VERCEL && process.env.DATABASE_URL?.startsWith('file:')) {
+  process.env.DATABASE_URL = 'file:/tmp/dev.db';
+}
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.VERCEL ? 'file:/tmp/dev.db' : 'file:./dev.db';
+}
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'fallback-secret-minifoot-vercel-2026-change-me';
+}
+
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   PORT: z.coerce.number().default(5000),
@@ -13,15 +23,12 @@ const envSchema = z.object({
     .default('development'),
   BCRYPT_ROUNDS: z.coerce.number().default(10),
 });
-if (process.env.VERCEL && process.env.DATABASE_URL?.startsWith('file:')) {
-  process.env.DATABASE_URL = 'file:/tmp/dev.db';
-}
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error('❌ Invalid environment variables:', parsed.error.format());
-  process.exit(1);
+  throw new Error('Invalid environment variables');
 }
 
 export const env = parsed.data;
